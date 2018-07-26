@@ -9,6 +9,7 @@ import (
 	"github.com/leesper/holmes"
 )
 
+//定义原子操作
 var (
 	handleExported *expvar.Int
 	connExported   *expvar.Int
@@ -16,6 +17,7 @@ var (
 	qpsExported    *expvar.Float
 )
 
+//初始化变量
 func init() {
 	handleExported = expvar.NewInt("TotalHandle")
 	connExported = expvar.NewInt("TotalConn")
@@ -23,6 +25,7 @@ func init() {
 	qpsExported = expvar.NewFloat("QPS")
 }
 
+//监听端口
 // MonitorOn starts up an HTTP monitor on port.
 func MonitorOn(port int) {
 	go func() {
@@ -32,6 +35,11 @@ func MonitorOn(port int) {
 		}
 	}()
 }
+
+/**
+增加连接，处理次数，处理时间
+
+**/
 
 func addTotalConn(delta int64) {
 	connExported.Add(delta)
@@ -48,6 +56,7 @@ func addTotalTime(seconds float64) {
 	calculateQPS()
 }
 
+//计算qps
 func calculateQPS() {
 	totalConn, err := strconv.ParseInt(connExported.String(), 10, 64)
 	if err != nil {
