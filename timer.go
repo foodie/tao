@@ -62,6 +62,7 @@ func (heap *timerHeapType) Pop() interface{} {
 	return timer
 }
 
+//基本的时间设置
 /* 'expiration' is the time when timer time out, if 'interval' > 0
 the timer will time out periodically, 'timeout' contains the callback
 to be called when times out */
@@ -88,17 +89,18 @@ func (t *timerType) isRepeat() bool {
 
 // TimingWheel manages all the timed task.
 type TimingWheel struct {
-	timeOutChan chan *OnTimeOut
-	timers      timerHeapType
-	ticker      *time.Ticker
-	wg          *sync.WaitGroup
-	addChan     chan *timerType // add timer in loop
-	cancelChan  chan int64      // cancel timer in loop
-	sizeChan    chan int        // get size in loop
-	ctx         context.Context
-	cancel      context.CancelFunc
+	timeOutChan chan *OnTimeOut//超时chan
+	timers      timerHeapType//时间轮
+	ticker      *time.Ticker//ticker
+	wg          *sync.WaitGroup//waitGroup数据
+	addChan     chan *timerType // add timer in loop//添加数据的chan
+	cancelChan  chan int64      // cancel timer in loop//取消的chan
+	sizeChan    chan int        // get size in loop//大小
+	ctx         context.Context//上下文
+	cancel      context.CancelFunc//取消的函数
 }
 
+//对一个上下文建立一个chan
 // NewTimingWheel returns a *TimingWheel ready for use.
 func NewTimingWheel(ctx context.Context) *TimingWheel {
 	timingWheel := &TimingWheel{
@@ -125,6 +127,7 @@ func (tw *TimingWheel) TimeOutChannel() chan *OnTimeOut {
 	return tw.timeOutChan
 }
 
+//添加数据
 // AddTimer adds new timed task.
 func (tw *TimingWheel) AddTimer(when time.Time, interv time.Duration, to *OnTimeOut) int64 {
 	if to == nil {

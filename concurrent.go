@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 )
 
+//设置并发类的包
+
 // AtomicInt64 provides atomic int64 type.
 type AtomicInt64 int64
 

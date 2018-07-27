@@ -22,21 +22,28 @@ var (
 	tlsWrapper    func(net.Conn) net.Conn
 )
 
+//基本选项
 type options struct {
-	tlsCfg     *tls.Config
-	codec      Codec
+	tlsCfg     *tls.Config//ssl选项
+	codec      Codec//编码解码接口
+	//定义四个方法
 	onConnect  onConnectFunc
 	onMessage  onMessageFunc
 	onClose    onCloseFunc
 	onError    onErrorFunc
+	//工作的线程数据
 	workerSize int  // numbers of worker go-routines
+	//buffer的个数
 	bufferSize int  // size of buffered channel
+	//是否重连
 	reconnect  bool // for ClientConn use only
 }
 
+//编辑option
 // ServerOption sets server options.
 type ServerOption func(*options)
 
+//返回编辑connect的函数
 // ReconnectOption returns a ServerOption that will make ClientConn reconnectable.
 func ReconnectOption() ServerOption {
 	return func(o *options) {
@@ -44,6 +51,7 @@ func ReconnectOption() ServerOption {
 	}
 }
 
+//编码和解码
 // CustomCodecOption returns a ServerOption that will apply a custom Codec.
 func CustomCodecOption(codec Codec) ServerOption {
 	return func(o *options) {
@@ -51,6 +59,7 @@ func CustomCodecOption(codec Codec) ServerOption {
 	}
 }
 
+//ssl配置
 // TLSCredsOption returns a ServerOption that will set TLS credentials for server
 // connections.
 func TLSCredsOption(config *tls.Config) ServerOption {
@@ -67,6 +76,7 @@ func WorkerSizeOption(workerSz int) ServerOption {
 	}
 }
 
+//buffer设置
 // BufferSizeOption returns a ServerOption that is the size of buffered channel,
 // for example an indicator of BufferSize256 means a size of 256.
 func BufferSizeOption(indicator int) ServerOption {
@@ -107,19 +117,20 @@ func OnErrorOption(cb func(WriteCloser)) ServerOption {
 	}
 }
 
+//定义一个tcpServer
 // Server  is a server to serve TCP requests.
 type Server struct {
-	opts   options
-	ctx    context.Context
-	cancel context.CancelFunc
-	conns  *sync.Map
-	timing *TimingWheel
-	wg     *sync.WaitGroup
-	mu     sync.Mutex // guards following
-	lis    map[net.Listener]bool
+	opts   options//选项
+	ctx    context.Context//上下文
+	cancel context.CancelFunc//取消函数
+	conns  *sync.Map//同步的map
+	timing *TimingWheel//时间轮
+	wg     *sync.WaitGroup//wg
+	mu     sync.Mutex // guards following loc
+	lis    map[net.Listener]bool//是否活着
 	// for periodically running function every duration.
-	interv time.Duration
-	sched  onScheduleFunc
+	interv time.Duration//时间间隔
+	sched  onScheduleFunc//调度函数
 }
 
 // NewServer returns a new TCP server which has not started

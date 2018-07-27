@@ -10,6 +10,7 @@ import (
 	"github.com/leesper/holmes"
 )
 
+//消息类型，消息长度，消息最大长度
 const (
 	// MessageTypeBytes is the length of type header.
 	MessageTypeBytes = 4
@@ -19,21 +20,25 @@ const (
 	MessageMaxBytes = 1 << 23 // 8M
 )
 
+
+//消息处理器类型
 // MessageHandler is a combination of message and its handler function.
 type MessageHandler struct {
-	message Message
-	handler HandlerFunc
+	message Message//消息
+	handler HandlerFunc//消息处理函数
 }
 
+//写和关闭接口
 // WriteCloser is the interface that groups Write and Close methods.
 type WriteCloser interface {
 	Write(Message) error
 	Close()
 }
 
+//连接的结构
 // ServerConn represents a server connection to a TCP server, it implments Conn.
 type ServerConn struct {
-	netid   int64
+	netid   int64//系统id
 	belong  *Server
 	rawConn net.Conn
 

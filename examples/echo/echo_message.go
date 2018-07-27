@@ -7,6 +7,7 @@ import (
 	"github.com/leesper/tao"
 )
 
+//定义消息类型
 // Message defines the echo message.
 type Message struct {
 	Content string
