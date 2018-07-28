@@ -141,6 +141,7 @@ func NewServer(opt ...ServerOption) *Server {
 		o(&opts)
 	}
 
+	//设置默认值
 	if opts.codec == nil {
 		opts.codec = TypeLengthValueCodec{}
 	}
@@ -151,16 +152,20 @@ func NewServer(opt ...ServerOption) *Server {
 		opts.bufferSize = BufferSize256
 	}
 
+	//初始化连接池
 	// initiates go-routine pool instance
 	globalWorkerPool = newWorkerPool(opts.workerSize)
 
+	//初始化一个server
 	s := &Server{
 		opts:  opts,
 		conns: &sync.Map{},
 		wg:    &sync.WaitGroup{},
 		lis:   make(map[net.Listener]bool),
 	}
+	//构建上下文
 	s.ctx, s.cancel = context.WithCancel(context.Background())
+	//构建时间轮
 	s.timing = NewTimingWheel(s.ctx)
 	return s
 }
