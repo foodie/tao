@@ -143,6 +143,7 @@ func (tw *TimingWheel) Size() int {
 	return <-tw.sizeChan
 }
 
+//取消定时器
 // CancelTimer cancels a timed task with specified timer ID.
 func (tw *TimingWheel) CancelTimer(timerID int64) {
 	tw.cancelChan <- timerID

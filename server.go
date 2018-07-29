@@ -170,6 +170,7 @@ func NewServer(opt ...ServerOption) *Server {
 	return s
 }
 
+//返回个数
 // ConnsSize returns connections size.
 func (s *Server) ConnsSize() int {
 	var sz int
@@ -180,14 +181,17 @@ func (s *Server) ConnsSize() int {
 	return sz
 }
 
+//时间间隔
 // Sched sets a callback to invoke every duration.
 func (s *Server) Sched(dur time.Duration, sched func(time.Time, WriteCloser)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.interv = dur
+	//调度函数
 	s.sched = onScheduleFunc(sched)
 }
 
+//server端的广播，广播消息
 // Broadcast broadcasts message to all server connections managed.
 func (s *Server) Broadcast(msg Message) {
 	s.conns.Range(func(k, v interface{}) bool {
@@ -200,6 +204,7 @@ func (s *Server) Broadcast(msg Message) {
 	})
 }
 
+//根据id，往con里面写Message
 // Unicast unicasts message to a specified conn.
 func (s *Server) Unicast(id int64, msg Message) error {
 	v, ok := s.conns.Load(id)
@@ -209,6 +214,7 @@ func (s *Server) Unicast(id int64, msg Message) error {
 	return fmt.Errorf("conn id %d not found", id)
 }
 
+//获取当前的server
 // Conn returns a server connection with specified ID.
 func (s *Server) Conn(id int64) (*ServerConn, bool) {
 	v, ok := s.conns.Load(id)
@@ -218,6 +224,7 @@ func (s *Server) Conn(id int64) (*ServerConn, bool) {
 	return nil, ok
 }
 
+//启动一个监听的接口
 // Start starts the TCP server, accepting new clients and creating service
 // go-routine for each. The service go-routines read messages and then call
 // the registered handlers to handle them. Start returns when failed with fatal
@@ -229,9 +236,11 @@ func (s *Server) Start(l net.Listener) error {
 		l.Close()
 		return ErrServerClosed
 	}
+	//记录监听的接口
 	s.lis[l] = true
 	s.mu.Unlock()
 
+	//最后也是关闭这个连接
 	defer func() {
 		s.mu.Lock()
 		if s.lis != nil && s.lis[l] {
@@ -241,65 +250,88 @@ func (s *Server) Start(l net.Listener) error {
 		s.mu.Unlock()
 	}()
 
+	//接收到请求
 	holmes.Infof("server start, net %s addr %s\n", l.Addr().Network(), l.Addr().String())
 
+	//添加wg
 	s.wg.Add(1)
+
+	//超时的处理
 	go s.timeOutLoop()
 
+	//延时处理
 	var tempDelay time.Duration
 	for {
+		//获取连接
 		rawConn, err := l.Accept()
 		if err != nil {
+			//网路错误，设置尝试时间
 			if ne, ok := err.(net.Error); ok && ne.Temporary() {
 				if tempDelay == 0 {
 					tempDelay = 5 * time.Millisecond
 				} else {
 					tempDelay *= 2
 				}
+
+				//设置最长时间
 				if max := 1 * time.Second; tempDelay >= max {
 					tempDelay = max
 				}
 				holmes.Errorf("accept error %v, retrying in %d\n", err, tempDelay)
+
 				select {
-				case <-time.After(tempDelay):
-				case <-s.ctx.Done():
+				case <-time.After(tempDelay)://设置时间
+				case <-s.ctx.Done()://关闭ctx
 				}
 				continue
 			}
 			return err
 		}
+		//延时时间
 		tempDelay = 0
 
 		// how many connections do we have ?
+		//连接的个数
 		sz := s.ConnsSize()
+
+		//大于最大连接，拒绝连接
 		if sz >= MaxConnections {
 			holmes.Warnf("max connections size %d, refuse\n", sz)
 			rawConn.Close()
 			continue
 		}
 
+		//设置tls连接
 		if s.opts.tlsCfg != nil {
 			rawConn = tls.Server(rawConn, s.opts.tlsCfg)
 		}
 
+		//获取网路的id
 		netid := netIdentifier.GetAndIncrement()
+		//新建一个连接
 		sc := NewServerConn(netid, s, rawConn)
+		//设置名字
 		sc.SetName(sc.rawConn.RemoteAddr().String())
 
+		//设置调度，间隔时间
 		s.mu.Lock()
 		if s.sched != nil {
 			sc.RunEvery(s.interv, s.sched)
 		}
 		s.mu.Unlock()
 
+		//存储网络id和sc
 		s.conns.Store(netid, sc)
 		addTotalConn(1)
 
+		//添加数据
 		s.wg.Add(1) // this will be Done() in ServerConn.Close()
 		go func() {
+			//开始处理连接
 			sc.Start()
 		}()
 
+		//循环处理
 		holmes.Infof("accepted client %s, id %d, total %d\n", sc.Name(), netid, s.ConnsSize())
 		s.conns.Range(func(k, v interface{}) bool {
 			i := k.(int64)
@@ -310,6 +342,7 @@ func (s *Server) Start(l net.Listener) error {
 	} // for loop
 }
 
+//关闭server
 // Stop gracefully closes the server, it blocked until all connections
 // are closed and all go-routines are exited.
 func (s *Server) Stop() {
@@ -318,33 +351,40 @@ func (s *Server) Stop() {
 	listeners := s.lis
 	s.lis = nil
 	s.mu.Unlock()
-
+	//关闭监听的端口
 	for l := range listeners {
 		l.Close()
 		holmes.Infof("stop accepting at address %s\n", l.Addr().String())
 	}
 
+	//关闭所有的conns
 	// close all connections
 	conns := map[int64]*ServerConn{}
 
+	//设置成基本的
 	s.conns.Range(func(k, v interface{}) bool {
 		i := k.(int64)
 		c := v.(*ServerConn)
 		conns[i] = c
 		return true
 	})
+
+	//设置基本的
 	// let GC do the cleanings
 	s.conns = nil
 
+	//关闭原始连接
 	for _, c := range conns {
 		c.rawConn.Close()
 		holmes.Infof("close client %s\n", c.Name())
 	}
 
+	//取消context
 	s.mu.Lock()
 	s.cancel()
 	s.mu.Unlock()
 
+	//关闭连接
 	s.wg.Wait()
 
 	holmes.Infoln("server stopped gracefully, bye.")
@@ -355,31 +395,39 @@ func (s *Server) Stop() {
 // to corresponding client connection, this prevents one client from running
 // callbacks of other clients
 func (s *Server) timeOutLoop() {
+	//最后关闭
 	defer s.wg.Done()
 
 	for {
 		select {
+		//关闭，直接返回
 		case <-s.ctx.Done():
 			return
-
+		//获取OnTimeOut的chan
 		case timeout := <-s.timing.TimeOutChannel():
+			//获取id
 			netID := timeout.Ctx.Value(netIDCtx).(int64)
 			if v, ok := s.conns.Load(netID); ok {
+				//获取ServerConn的连接
 				sc := v.(*ServerConn)
-				sc.timerCh <- timeout
+				sc.timerCh <- timeout //超时的处理
 			} else {
+				//warn日志
 				holmes.Warnf("invalid client %d", netID)
 			}
 		}
 	}
 }
 
+//获取TLS的配置
 // LoadTLSConfig returns a TLS configuration with the specified cert and key file.
 func LoadTLSConfig(certFile, keyFile string, isSkipVerify bool) (*tls.Config, error) {
+	//加载cert数据
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, err
 	}
+	//获取基本的配置
 	config := &tls.Config{
 		Certificates:       []tls.Certificate{cert},
 		InsecureSkipVerify: isSkipVerify,
