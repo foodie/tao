@@ -38,6 +38,9 @@ func (f HandlerFunc) Handle(ctx context.Context, c WriteCloser) {
 // UnmarshalFunc unmarshals bytes into Message.
 type UnmarshalFunc func([]byte) (Message, error)
 
+
+//1 处理实现了writer和close接口的连接
+//2 反解[]byte 为Message
 //处理上下文，反解消息类
 // handlerUnmarshaler is a combination of unmarshal and handle functions for message.
 type handlerUnmarshaler struct {

@@ -470,10 +470,12 @@ func (cc *ClientConn) Close() {
 	})
 }
 
+
 // reconnect reconnects and returns a new *ClientConn.
 func (cc *ClientConn) reconnect() {
 	var c net.Conn
 	var err error
+	//加密的连接
 	if cc.opts.tlsCfg != nil {
 		c, err = tls.Dial("tcp", cc.addr, cc.opts.tlsCfg)
 		if err != nil {
@@ -487,6 +489,7 @@ func (cc *ClientConn) reconnect() {
 	}
 	// copy the newly-created *ClientConn to cc, so after
 	// reconnect returned cc will be updated to new one.
+	//新建一个连接
 	*cc = *newClientConnWithOptions(cc.netid, c, cc.opts)
 	cc.Start()
 }

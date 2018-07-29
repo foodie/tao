@@ -14,15 +14,18 @@ const (
 	bufferSize               = 1024
 )
 
+//时间轮的id
 var timerIds *AtomicInt64
 
 func init() {
 	timerIds = NewAtomicInt64(0)
 }
 
+//构建一个timerType的slice的堆
+//定义一个timeType的数组
 // timerHeap is a heap-based priority queue
 type timerHeapType []*timerType
-
+//获取index，是堆默认的？
 func (heap timerHeapType) getIndexByID(id int64) int {
 	for _, t := range heap {
 		if t.id == id {
@@ -67,10 +70,10 @@ func (heap *timerHeapType) Pop() interface{} {
 the timer will time out periodically, 'timeout' contains the callback
 to be called when times out */
 type timerType struct {
-	id         int64
-	expiration time.Time
-	interval   time.Duration
-	timeout    *OnTimeOut
+	id         int64//当前的id
+	expiration time.Time//过期时间
+	interval   time.Duration//间隔执行时间
+	timeout    *OnTimeOut//回调函数
 	index      int // for container/heap
 }
 
@@ -83,10 +86,12 @@ func newTimer(when time.Time, interv time.Duration, to *OnTimeOut) *timerType {
 	}
 }
 
+//是否是重复执行的
 func (t *timerType) isRepeat() bool {
 	return int64(t.interval) > 0
 }
 
+//时间轮，管理所有的时间任务
 // TimingWheel manages all the timed task.
 type TimingWheel struct {
 	timeOutChan chan *OnTimeOut//超时chan
@@ -159,14 +164,16 @@ func (tw *TimingWheel) getExpired() []*timerType {
 	expired := make([]*timerType, 0)
 	for tw.timers.Len() > 0 {
 		timer := heap.Pop(&tw.timers).(*timerType)
+		//返回从t到现在经过的时间, 当前时间-过期时间
 		elapsed := time.Since(timer.expiration).Seconds()
+		//正数表示过期，负数表示未过期
 		if elapsed > 1.0 {
 			holmes.Warnf("elapsed %f\n", elapsed)
 		}
-		if elapsed > 0.0 {
+		if elapsed > 0.0 {//已经过期
 			expired = append(expired, timer)
 			continue
-		} else {
+		} else {//如果未过期，则跳出循环
 			heap.Push(&tw.timers, timer)
 			break
 		}
@@ -178,12 +185,15 @@ func (tw *TimingWheel) update(timers []*timerType) {
 	if timers != nil {
 		for _, t := range timers {
 			if t.isRepeat() { // repeatable timer task
+				//加上当前时间
 				t.expiration = t.expiration.Add(t.interval)
 				// if task time out for at least 10 seconds, the expiration time needs
 				// to be updated in case this task executes every time timer wakes up.
+				//如果还是过期，改为现在
 				if time.Since(t.expiration).Seconds() >= 10.0 {
 					t.expiration = time.Now()
 				}
+				//继续放入
 				heap.Push(&tw.timers, t)
 			}
 		}
@@ -193,27 +203,28 @@ func (tw *TimingWheel) update(timers []*timerType) {
 func (tw *TimingWheel) start() {
 	for {
 		select {
-		case timerID := <-tw.cancelChan:
+		case timerID := <-tw.cancelChan://删除对应的数据
 			index := tw.timers.getIndexByID(timerID)
 			if index >= 0 {
 				heap.Remove(&tw.timers, index)
 			}
 
-		case tw.sizeChan <- tw.timers.Len():
+		case tw.sizeChan <- tw.timers.Len()://获取数据的长度
 
-		case <-tw.ctx.Done():
+		case <-tw.ctx.Done()://完成tick
 			tw.ticker.Stop()
 			return
 
-		case timer := <-tw.addChan:
+		case timer := <-tw.addChan://放入数据
 			heap.Push(&tw.timers, timer)
 
 		case <-tw.ticker.C:
-			timers := tw.getExpired()
+			timers := tw.getExpired()//获取过期的数据
 			for _, t := range timers {
+				//调用chan过期的
 				tw.TimeOutChannel() <- t.timeout
 			}
-			tw.update(timers)
+			tw.update(timers)//更新时间
 		}
 	}
 }

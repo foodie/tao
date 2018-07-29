@@ -45,7 +45,7 @@ func main() {
 	conn.Start()
 
 	for i := 0; i < 10; i++ {
-		time.Sleep(60 * time.Millisecond)
+		time.Sleep(3 * time.Second)
 		err := conn.Write(echo)
 		if err != nil {
 			holmes.Errorln(err)
