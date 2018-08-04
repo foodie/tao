@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 )
 
+//原子的int64
 // AtomicInt64 provides atomic int64 type.
 type AtomicInt64 int64
 
@@ -124,6 +125,7 @@ func (a *AtomicInt64) String() string {
 	return fmt.Sprintf("%d", a.Get())
 }
 
+//原子的32
 // AtomicInt32 provides atomic int32 type.
 type AtomicInt32 int32
 
@@ -236,6 +238,7 @@ func (a *AtomicInt32) String() string {
 	return fmt.Sprintf("%d", a.Get())
 }
 
+//原子的int32
 // AtomicBoolean provides atomic boolean type.
 type AtomicBoolean int32
 
