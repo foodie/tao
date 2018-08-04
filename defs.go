@@ -43,13 +43,19 @@ const (
 	BufferSize256     = 256
 	BufferSize512     = 512
 	BufferSize1024    = 1024
+	//默认的工作连接的个数
 	defaultWorkersNum = 20
 )
 
 //连接函数的配置
+
+//连接时处理
 type onConnectFunc func(WriteCloser) bool
+//处理消息
 type onMessageFunc func(Message, WriteCloser)
+//关闭时处理
 type onCloseFunc func(WriteCloser)
+//发生错误时的处理
 type onErrorFunc func(WriteCloser)
 
 //工作函数
@@ -61,8 +67,8 @@ type onScheduleFunc func(time.Time, WriteCloser)
 //超时时的结构
 // OnTimeOut represents a timed task.
 type OnTimeOut struct {
-	Callback func(time.Time, WriteCloser)
-	Ctx      context.Context
+	Callback func(time.Time, WriteCloser)//回调函数
+	Ctx      context.Context//上下文
 }
 
 //新建一个OnTimeOut
@@ -75,6 +81,7 @@ func NewOnTimeOut(ctx context.Context, cb func(time.Time, WriteCloser)) *OnTimeO
 }
 
 //hash接口
+//hash接口
 // Hashable is a interface for hashable object.
 type Hashable interface {
 	HashCode() int32
@@ -83,6 +90,7 @@ type Hashable interface {
 //int的尺寸
 const intSize = unsafe.Sizeof(1)
 
+//hash函数
 //按照字符串构建hashcode
 func hashCode(k interface{}) uint32 {
 	var code uint32

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/leesper/holmes"
+	"io"
 )
 
 //定义原子操作
@@ -35,6 +36,22 @@ func MonitorOn(port int) {
 		}
 	}()
 }
+
+func ShowQps(port int)  {
+	http.HandleFunc("/show_qps", showIt)
+
+	go func() {
+		err := http.ListenAndServe(":11111", nil)
+		holmes.Errorln(err)
+	}()
+}
+//显示qps
+func showIt(w http.ResponseWriter, req *http.Request) {
+	io.WriteString(w, qpsExported.String())
+}
+
+
+
 
 /**
 增加连接，处理次数，处理时间

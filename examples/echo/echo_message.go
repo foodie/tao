@@ -7,6 +7,7 @@ import (
 	"github.com/leesper/tao"
 )
 
+//定义消息类型
 // Message defines the echo message.
 type Message struct {
 	Content string
@@ -22,6 +23,7 @@ func (em Message) MessageNumber() int32 {
 	return 1
 }
 
+//解码
 // DeserializeMessage deserializes bytes into Message.
 func DeserializeMessage(data []byte) (message tao.Message, err error) {
 	if data == nil {
@@ -34,6 +36,7 @@ func DeserializeMessage(data []byte) (message tao.Message, err error) {
 	return echo, nil
 }
 
+//处理消息
 // ProcessMessage process the logic of echo message.
 func ProcessMessage(ctx context.Context, conn tao.WriteCloser) {
 	msg := tao.MessageFromContext(ctx).(Message)

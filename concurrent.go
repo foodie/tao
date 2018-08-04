@@ -13,6 +13,7 @@ import (
 )
 
 //原子的int64
+
 // AtomicInt64 provides atomic int64 type.
 type AtomicInt64 int64
 
