@@ -44,8 +44,8 @@ type UnmarshalFunc func([]byte) (Message, error)
 //处理上下文，反解消息类
 // handlerUnmarshaler is a combination of unmarshal and handle functions for message.
 type handlerUnmarshaler struct {
-	handler     HandlerFunc//处理上下文
-	unmarshaler UnmarshalFunc//反解byte成消息
+	handler     HandlerFunc//处理上下文，处理context
+	unmarshaler UnmarshalFunc//反解byte成消息， 反解
 }
 
 

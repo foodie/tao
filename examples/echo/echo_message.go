@@ -23,6 +23,7 @@ func (em Message) MessageNumber() int32 {
 	return 1
 }
 
+//反解消息
 //解码
 // DeserializeMessage deserializes bytes into Message.
 func DeserializeMessage(data []byte) (message tao.Message, err error) {
@@ -36,6 +37,7 @@ func DeserializeMessage(data []byte) (message tao.Message, err error) {
 	return echo, nil
 }
 
+//处理上下文
 //处理消息
 // ProcessMessage process the logic of echo message.
 func ProcessMessage(ctx context.Context, conn tao.WriteCloser) {
