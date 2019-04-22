@@ -3,6 +3,8 @@ AtomicInt32
 AtomicInt64
 AtomicBoolean
 ConcurrentMap
+
+设置原子操作
 */
 
 package tao
@@ -46,6 +48,7 @@ func (a *AtomicInt64) GetAndSet(newValue int64) int64 {
 // CompareAndSet compares int64 with expected value, if equals as expected
 // then sets the updated value, this operation performs atomically.
 func (a *AtomicInt64) CompareAndSet(expect, update int64) bool {
+	//如果值没有变化，设置新的值
 	return atomic.CompareAndSwapInt64((*int64)(a), expect, update)
 }
 

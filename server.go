@@ -18,6 +18,7 @@ func init() {
 }
 
 var (
+	//定义网络标识id
 	netIdentifier *AtomicInt64
 	tlsWrapper    func(net.Conn) net.Conn
 )

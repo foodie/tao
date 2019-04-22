@@ -24,16 +24,16 @@ type Handler interface {
 	Handle(context.Context, interface{})
 }
 
+//函数类型
 //处理器函数，ctx和writeCloser
 // HandlerFunc serves as an adapter to allow the use of ordinary functions as handlers.
 type HandlerFunc func(context.Context, WriteCloser)
-
-//自己调用自己
 // Handle calls f(ctx, c)
 func (f HandlerFunc) Handle(ctx context.Context, c WriteCloser) {
 	f(ctx, c)
 }
 
+//反解得到消息内容的函数
 //把byte解析成消息的函数
 // UnmarshalFunc unmarshals bytes into Message.
 type UnmarshalFunc func([]byte) (Message, error)
@@ -103,6 +103,7 @@ func GetHandlerFunc(msgType int32) HandlerFunc {
 }
 
 //定义消息接口
+//1 类型id  2 序列化
 // Message represents the structured data that can be handled.
 type Message interface {
 	MessageNumber() int32//消息的类型
@@ -115,10 +116,12 @@ type HeartBeatMessage struct {
 	Timestamp int64
 }
 
+//把心跳消息序列化成字节数组
 //重置消息，写入心跳消息
 // Serialize serializes HeartBeatMessage into bytes.
 func (hbm HeartBeatMessage) Serialize() ([]byte, error) {
-	buf.Reset()
+	buf.Reset()//重置buf
+	//写入大端消息
 	err := binary.Write(buf, binary.LittleEndian, hbm.Timestamp)
 	if err != nil {
 		return nil, err
@@ -132,6 +135,8 @@ func (hbm HeartBeatMessage) MessageNumber() int32 {
 	return HeartBeat
 }
 
+
+//把byte反解成message和error
 //把byte数据转换成消息类
 // DeserializeHeartBeat deserializes bytes into Message.
 func DeserializeHeartBeat(data []byte) (message Message, err error) {
@@ -149,10 +154,10 @@ func DeserializeHeartBeat(data []byte) (message Message, err error) {
 	}, nil
 }
 
-//处理心跳
+//发送心跳
 // HandleHeartBeat updates connection heart beat timestamp.
 func HandleHeartBeat(ctx context.Context, c WriteCloser) {
-	//获取网络消息
+	//从ctx获取,心跳内容
 	msg := MessageFromContext(ctx)
 	switch c := c.(type) {
 	case *ServerConn://服务端接连接，发送心跳
@@ -171,6 +176,7 @@ type Codec interface {
 }
 
 //定义一个长度和值的解码器
+//类型，4位长度，值
 // TypeLengthValueCodec defines a special codec.
 // Format: type-length-value |4 bytes|4 bytes|n bytes <= 8M|
 type TypeLengthValueCodec struct{}
@@ -205,9 +211,7 @@ func (codec TypeLengthValueCodec) Decode(raw net.Conn) (Message, error) {
 	var typeBytes []byte
 
 	select {
-
-	//读取消息类型失败
-	case err := <-errorChan:
+	case err := <-errorChan://读取消息类型失败
 		return nil, err
 
 	case typeBytes = <-byteChan://获取消息类型

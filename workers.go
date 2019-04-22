@@ -9,6 +9,7 @@ import (
 )
 
 //工作池
+
 // WorkerPool is a pool of go-routines running functions.
 type WorkerPool struct {
 	workers   []*worker

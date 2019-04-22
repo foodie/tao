@@ -24,7 +24,7 @@ const (
 //消息处理器类型
 // MessageHandler is a combination of message and its handler function.
 type MessageHandler struct {
-	message Message//消息
+	message Message//消息接口
 	handler HandlerFunc//消息处理函数
 }
 
@@ -40,7 +40,7 @@ type WriteCloser interface {
 type ServerConn struct {
 	netid   int64//系统id
 	belong  *Server//属于哪个server
-	rawConn net.Conn//go的连接
+	rawConn net.Conn//tcp连接
 
 	once      *sync.Once//一次
 	wg        *sync.WaitGroup//等待的group
@@ -49,6 +49,7 @@ type ServerConn struct {
 	timerCh   chan *OnTimeOut//时间的chan
 
 	mu      sync.Mutex // guards following 加锁
+
 	name    string//名字
 	heart   int64//心跳
 	pending []int64//添加
@@ -150,8 +151,8 @@ func (sc *ServerConn) Start() {
 	onConnect := sc.belong.opts.onConnect
 	if onConnect != nil {
 		onConnect(sc)
-
 	}
+
 	//定义三个loop函数
 	//loop：读，写，处理
 	loopers := []func(WriteCloser, *sync.WaitGroup){readLoop, writeLoop, handleLoop}
@@ -170,20 +171,20 @@ func (sc *ServerConn) Close() {
 	sc.once.Do(func() {
 		holmes.Infof("conn close gracefully, <%v -> %v>\n", sc.rawConn.LocalAddr(), sc.rawConn.RemoteAddr())
 
-		//关闭连接的处理
+		//关闭连接的处理方法
 		// callback on close
 		onClose := sc.belong.opts.onClose
 		if onClose != nil {
 			onClose(sc)
 		}
 
-		//删除指定的server
+		//删除指定的server的netid
 		// remove connection from server
 		sc.belong.conns.Delete(sc.netid)
 		//减少统计连接数
 		addTotalConn(-1)
 
-		//
+		//丢弃未发送的连接，立即返回error
 		// close net.Conn, any blocked read or write operation will be unblocked and
 		// return errors.
 		if tc, ok := sc.rawConn.(*net.TCPConn); ok {
@@ -201,7 +202,7 @@ func (sc *ServerConn) Close() {
 
 		// cancel readLoop, writeLoop and handleLoop go-routines.
 		sc.mu.Lock()
-		sc.cancel()
+		sc.cancel()//取消当前的context
 		//基本的处理
 		pending := sc.pending
 		sc.pending = nil
@@ -209,12 +210,13 @@ func (sc *ServerConn) Close() {
 
 
 		//取消时间的处理
+		//取消待处理的pending
 		// clean up pending timers
 		for _, id := range pending {
 			sc.CancelTimer(id)
 		}
 
-		//等待
+		//等待完成
 		// wait until all go-routines exited.
 		sc.wg.Wait()
 
@@ -226,7 +228,7 @@ func (sc *ServerConn) Close() {
 
 		//关闭wg
 		// tell server I'm done :( .
-		sc.belong.wg.Done()
+		sc.belong.wg.Done()// context完成
 	})
 }
 
@@ -246,7 +248,7 @@ func (sc *ServerConn) Write(message Message) error {
 	return asyncWrite(sc, message)
 }
 
-//
+//添加定时器id
 // RunAt runs a callback at the specified timestamp.
 func (sc *ServerConn) RunAt(timestamp time.Time, callback func(time.Time, WriteCloser)) int64 {
 	id := runAt(sc.ctx, sc.netid, sc.belong.timing, timestamp, callback)
@@ -275,12 +277,13 @@ func (sc *ServerConn) RunEvery(interval time.Duration, callback func(time.Time, 
 	return id
 }
 
-//
+//取消定时器
 // CancelTimer cancels a timer with the specified ID.
 func (sc *ServerConn) CancelTimer(timerID int64) {
 	cancelTimer(sc.belong.timing, timerID)
 }
-//取消时间
+
+//取消定时器
 func cancelTimer(timing *TimingWheel, timerID int64) {
 	if timing != nil {
 		timing.CancelTimer(timerID)
@@ -313,7 +316,7 @@ type ClientConn struct {
 	timing    *TimingWheel//时间轮
 	mu        sync.Mutex // guards following
 	name      string//名字
-	heart     int64//细条
+	heart     int64//心跳
 	pending   []int64//添加
 	ctx       context.Context//ctx
 	cancel    context.CancelFunc//cancel
@@ -352,6 +355,7 @@ func newClientConnWithOptions(netid int64, c net.Conn, opts options) *ClientConn
 		heart:     time.Now().UnixNano(),
 	}
 	cc.ctx, cc.cancel = context.WithCancel(context.Background())
+	//时间轮
 	cc.timing = NewTimingWheel(cc.ctx)
 	cc.name = c.RemoteAddr().String()
 	cc.pending = []int64{}
@@ -464,7 +468,7 @@ func (cc *ClientConn) Close() {
 		// NOTE that it will cause an "unlock of unlocked mutex" error if cc.once is
 		// a sync.Once struct, because "defer o.m.Unlock()" in sync.Once.Do() will
 		// be performed on an unlocked mutex(the newly-allocated one noticed above)
-		if cc.opts.reconnect {
+		if cc.opts.reconnect {//重写连接
 			cc.reconnect()
 		}
 	})

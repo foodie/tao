@@ -12,10 +12,10 @@ import (
 
 //定义原子操作
 var (
-	handleExported *expvar.Int
-	connExported   *expvar.Int
-	timeExported   *expvar.Float
-	qpsExported    *expvar.Float
+	handleExported *expvar.Int//处理数量
+	connExported   *expvar.Int//连接数量
+	timeExported   *expvar.Float//时间数量
+	qpsExported    *expvar.Float//qps数量
 )
 
 //初始化变量
@@ -26,7 +26,7 @@ func init() {
 	qpsExported = expvar.NewFloat("QPS")
 }
 
-//监听端口
+//对外暴露一个http接口
 // MonitorOn starts up an HTTP monitor on port.
 func MonitorOn(port int) {
 	go func() {
@@ -37,6 +37,7 @@ func MonitorOn(port int) {
 	}()
 }
 
+//定义qps
 func ShowQps(port int)  {
 	http.HandleFunc("/show_qps", showIt)
 
@@ -55,9 +56,9 @@ func showIt(w http.ResponseWriter, req *http.Request) {
 
 /**
 增加连接，处理次数，处理时间
+	1 连接，处理，时间
 
 **/
-
 func addTotalConn(delta int64) {
 	connExported.Add(delta)
 	calculateQPS()
@@ -75,26 +76,29 @@ func addTotalTime(seconds float64) {
 
 //计算qps
 func calculateQPS() {
+	//总连接
 	totalConn, err := strconv.ParseInt(connExported.String(), 10, 64)
 	if err != nil {
 		holmes.Errorln(err)
 		return
 	}
-
+	//总时间
 	totalTime, err := strconv.ParseFloat(timeExported.String(), 64)
 	if err != nil {
 		holmes.Errorln(err)
 		return
 	}
-
+	//从处理次数
 	totalHandle, err := strconv.ParseInt(handleExported.String(), 10, 64)
 	if err != nil {
 		holmes.Errorln(err)
 		return
 	}
 
+	//如果连接和时间相乘不为0
 	if float64(totalConn)*totalTime != 0 {
 		// take the average time per worker go-routine
+		//处理数量/连接/时间/池大小
 		qps := float64(totalHandle) / (float64(totalConn) * (totalTime / float64(WorkerPoolInstance().Size())))
 		qpsExported.Set(qps)
 	}

@@ -17,7 +17,6 @@ const (
 
 //时间轮的id
 var timerIds *AtomicInt64
-
 func init() {
 	timerIds = NewAtomicInt64(0)
 }
@@ -26,8 +25,11 @@ func init() {
 //构建一个timerType的slice的堆
 //定义一个timeType的数组
 // timerHeap is a heap-based priority queue
+
+
 type timerHeapType []*timerType
-//获取index，是堆默认的？
+
+//根据全局id获取timerHeapType的索引
 func (heap timerHeapType) getIndexByID(id int64) int {
 	for _, t := range heap {
 		if t.id == id {
@@ -42,12 +44,12 @@ func (heap timerHeapType) Len() int {
 	return len(heap)
 }
 
-//比较时间大小
+//比较时间大小，按照过期时间顺序排列
 func (heap timerHeapType) Less(i, j int) bool {
 	return heap[i].expiration.UnixNano() < heap[j].expiration.UnixNano()
 }
 
-//交互数据
+//交换数据
 func (heap timerHeapType) Swap(i, j int) {
 	heap[i], heap[j] = heap[j], heap[i]
 	heap[i].index = i
@@ -79,19 +81,19 @@ to be called when times out */
 //定义一个时间类型
 type timerType struct {
 	id         int64         //id
-	expiration time.Time     //从什么时间开始执行
+	expiration time.Time     //过期时间
 	interval   time.Duration //间隔时间
-	timeout    *OnTimeOut    //超时执行
+	timeout    *OnTimeOut    //超时函数
 	index      int           // for container/heap//heap里面的index
 }
 
 //新建一个timertyper
 func newTimer(when time.Time, interv time.Duration, to *OnTimeOut) *timerType {
 	return &timerType{
-		id:         timerIds.GetAndIncrement(),
-		expiration: when,
-		interval:   interv,
-		timeout:    to,
+		id:         timerIds.GetAndIncrement(),//分配id
+		expiration: when,//到期时间
+		interval:   interv,//时间间隔
+		timeout:    to,//超时回调
 	}
 }
 
@@ -103,13 +105,13 @@ func (t *timerType) isRepeat() bool {
 // TimingWheel manages all the timed task.
 type TimingWheel struct {
 	timeOutChan chan *OnTimeOut    //超时执行的chan
-	timers      timerHeapType      //定义堆
+	timers      timerHeapType      //时间堆
 	ticker      *time.Ticker       //ticker
-	wg          *sync.WaitGroup    //等待
+	wg          *sync.WaitGroup    //等待group
 	addChan     chan *timerType    // add timer in loop //添加时间的chanchan
 	cancelChan  chan int64         // cancel timer in loop//取消时间的chan
 	sizeChan    chan int           // get size in loop//大小的chan
-	ctx         context.Context    //shagnxiaowshagnxiaow//上下文
+	ctx         context.Context    //上下文
 	cancel      context.CancelFunc //取消时调用的函数
 }
 
@@ -172,7 +174,7 @@ func (tw *TimingWheel) CancelTimer(timerID int64) {
 	tw.cancelChan <- timerID
 }
 
-//暂停时间轮
+//停止时间轮
 // Stop stops the TimingWheel.
 func (tw *TimingWheel) Stop() {
 	tw.cancel()
